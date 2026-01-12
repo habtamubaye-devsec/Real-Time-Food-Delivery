@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const session = require("express-session");
 // fixed routes
 const authRoutes = require("./src/routes/auth.Routes");
 const restaurantRoutes = require("./src/routes/restaurant.route");
@@ -19,6 +20,7 @@ const connectDB = require("./src/config/db");
 const { connectRedis } = require("./src/config/redis");
 const logger = require("./src/utils/logger");
 const cookieParser = require("cookie-parser");
+const passport = require("./src/config/passport");
 
 const app = express();
 
@@ -44,8 +46,29 @@ Promise.all([connectDB(), connectRedis()]).catch((err) => {
   else throw err; // Rethrow error in test environment
 });
 
+
+// Session
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "dev_session_secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    },
+  })
+);
+
+// Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
 // API Routes
 app.use("/api/delivery/auth", authRoutes);
+// // Backward-compatible alias (some Google callback URLs may still point here)
+// app.use("/api/auth", authRoutes);
 app.use("/api/delivery/admin", adminRoutes);
 app.use("/api/delivery/customer", cartRoutes);
 
