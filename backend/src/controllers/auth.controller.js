@@ -1,4 +1,5 @@
 const User = require("../models/Users");
+const Restaurant = require("../models/Restaurant");
 const { generateToken, refreshToken } = require("../utils/generateToken");
 const bcrypt = require("bcryptjs");
 const { sendOTP, verifyOTP } = require("../utils/afroMessage");
@@ -15,6 +16,41 @@ const cookieOptions = () => {
     sameSite: isProd ? "none" : "lax",
     path: "/",
   };
+};
+
+exports.googleCallback = async (req, res) => {
+  try {
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const user = req.user;
+
+    if (!user) {
+      return res.redirect(`${clientUrl}/login?error=google`);
+    }
+
+    // clear stored role hint
+    if (req.session) req.session.oauthRole = undefined;
+
+    const token = generateToken(user);
+    const refreshTokenValue = refreshToken(user);
+
+    await User.updateOne(
+      { _id: user._id },
+      { refreshToken: refreshTokenValue }
+    );
+
+    res.cookie("token", token, cookieOptions());
+    res.cookie("refreshToken", refreshTokenValue, cookieOptions());
+
+    // Redirect based on actual role
+    if (user.role === "admin") return res.redirect(`${clientUrl}/pending`);
+    if (user.role === "restaurant") return res.redirect(`${clientUrl}/restaurant/menu`);
+    if (user.role === "driver") return res.redirect(`${clientUrl}/driver/orders/${user._id}`);
+    return res.redirect(`${clientUrl}/nearby`);
+  } catch (err) {
+    logger.error(err.message);
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    return res.redirect(`${clientUrl}/login?error=google_server`);
+  }
 };
 
 exports.register = async (req, res) => {
@@ -53,7 +89,9 @@ exports.register = async (req, res) => {
 exports.verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
+    console.log(phone, otp);
     const stored = await getOtp(phone);
+    console.log(stored);
     if (!stored) {
       return res.status(400).json({ message: "OTP expired or not found" });
     }
@@ -75,6 +113,15 @@ exports.verifyOTP = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    // // If this is a restaurant account, also mark its Restaurant profile as verified.
+    // // The public restaurant listing filters by Restaurant.verified.
+    // if (user.role === "restaurant") {
+    //   await Restaurant.updateOne(
+    //     { ownerId: user._id },
+    //     { $set: { verified: true } }
+    //   );
+    // }
 
     const token = generateToken(user);
     const refreshTokenn = refreshToken(user);
