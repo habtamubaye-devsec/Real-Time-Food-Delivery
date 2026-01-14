@@ -6,13 +6,15 @@ const mongoose = require("mongoose");
 const registerDriver = async (req, res) => {
     try {
         const { email, phone, password, name, restaurantId } = req.body;
+        console.log("Registering driver with data:", req.body);
 
         // Check if user already exists
         const userExist = await User.findOne({ email });
         if (userExist) return res.status(400).json({ message: "Driver already exists" });
 
         // Create user
-        const user = await User.create({ email, phone, password, role: "driver", restaurantId });
+        const user = await User.create({ email, phone, password, name, role: "driver", restaurantId });
+        console.log("Driver created:", user);
         res.status(201).json({ status: "success", data: { user } });
     } catch (err) {
         res.status(500).json({ message: err.message });
