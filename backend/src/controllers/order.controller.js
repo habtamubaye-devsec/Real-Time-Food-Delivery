@@ -3,6 +3,7 @@ const Joi = require("joi");
 const Order = require("../models/Order");
 const Restaurant = require("../models/Restaurant");
 const { client: redisClient } = require("../config/redis");
+const { getIO } = require("../realtime/socket");
 const logger = require("../utils/logger");
 
 // Joi schema for order history query (pagination only)
@@ -61,6 +62,18 @@ exports.createOrder = async (req, res) => {
     await Cart.deleteOne({ customerId: req.user._id }); // clear cart
     await redisClient.del(`cart:${req.user._id}`);
     // await redisClient.del(`orders:${cart.restaurantId}`);
+
+    // Emit socket event
+    try {
+      const io = getIO();
+      if (io) {
+        io.to(`restaurant:${cart.restaurantId}`).emit("order:created", order);
+        io.to("admins").emit("order:created", order);
+      }
+    } catch (e) {
+      logger.error(`Socket emit error: ${e.message}`);
+    }
+
     res.status(200).json({ message: "success", data: order });
   } catch (err) {
     logger.error(`Error creating the order: ${err.message}`);
@@ -99,10 +112,11 @@ exports.getOrderHistory = async (req, res) => {
 
     const orders = await Order.find(query)
       .select(
-        "customerId restaurantId items total status deliveryLocation paymentMethod createdAt updatedAt"
+        "customerId restaurantId items total status deliveryLocation paymentMethod createdAt updatedAt driverId"
       )
       .populate("customerId", "email")
       .populate("restaurantId", "name")
+      .populate("driverId", "_id name")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -119,6 +133,58 @@ exports.getOrderHistory = async (req, res) => {
     });
   } catch (err) {
     logger.error(`Error fetching orders: ${err.message}`);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getOrderById = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await Order.findById(orderId)
+      .select(
+        "customerId restaurantId items total status deliveryLocation paymentMethod createdAt updatedAt driverId"
+      )
+      .populate("customerId", "email")
+      .populate("restaurantId", "name")
+      .populate("driverId", "_id name email");
+
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const userId = req.user._id.toString();
+    const role = req.user.role;
+
+    if (role === "admin") {
+      return res.status(200).json({ message: "Order retrieved", data: order });
+    }
+
+    if (role === "customer") {
+      if (order.customerId?._id?.toString?.() === userId) {
+        return res.status(200).json({ message: "Order retrieved", data: order });
+      }
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (role === "driver") {
+      if (order.driverId?._id?.toString?.() === userId) {
+        return res.status(200).json({ message: "Order retrieved", data: order });
+      }
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    if (role === "restaurant") {
+      const restaurant = await Restaurant.findOne({ ownerId: req.user._id }).select("_id");
+      if (!restaurant) return res.status(404).json({ message: "Restaurant not found" });
+      if (order.restaurantId?._id?.toString?.() === restaurant._id.toString()) {
+        return res.status(200).json({ message: "Order retrieved", data: order });
+      }
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    return res.status(403).json({ message: "Not authorized" });
+  } catch (err) {
+    logger.error(`Error fetching order by id: ${err.message}`);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -150,9 +216,9 @@ exports.changeOrderStatus = async (req, res) => {
 
     // Authorization
     if (req.user.role === "restaurant") {
-      const restaurant = await Restaurant.findOne({ ownerId: req.user._id }).select(
-        "_id"
-      );
+      const restaurant = await Restaurant.findOne({
+        ownerId: req.user._id,
+      }).select("_id");
       if (!restaurant) {
         return res.status(403).json({ message: "Not authorized" });
       }
@@ -160,7 +226,10 @@ exports.changeOrderStatus = async (req, res) => {
         return res.status(403).json({ message: "Not authorized" });
       }
     } else if (req.user.role === "driver") {
-      if (!order.driverId || order.driverId.toString() !== req.user._id.toString()) {
+      if (
+        !order.driverId ||
+        order.driverId.toString() !== req.user._id.toString()
+      ) {
         return res.status(403).json({ message: "Not authorized" });
       }
     }
@@ -168,7 +237,20 @@ exports.changeOrderStatus = async (req, res) => {
     order.status = status;
     await order.save();
 
-    // socket later
+    // socket emit
+    try {
+      const io = getIO();
+      // Notify customer
+      io.to(`order:${orderId}`).emit("order:updated", order);
+      // Notify restaurant (if status changed by driver/admin)
+      io.to(`restaurant:${order.restaurantId}`).emit("order:updated", order);
+      // Notify driver (if status changed by restaurant)
+      if (order.driverId) {
+        io.to(`driver:${order.driverId}`).emit("order:updated", order);
+      }
+    } catch (e) {
+      logger.error(`Socket emit error: ${e.message}`);
+    }
 
     res.status(200).json({ message: "Order status updated", data: order });
   } catch (err) {

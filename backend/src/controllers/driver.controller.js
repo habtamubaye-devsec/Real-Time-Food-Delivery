@@ -22,16 +22,28 @@ const registerDriver = async (req, res) => {
 }
 const currentLocation = async (req, res) => {
     try {
-        const driverId = await req.params.driverId;
+        const driverId = req.params.driverId;
         const { latitude, longitude } = req.body;
-        const driver = await DriverLocation.findById(driverId);
-        if (!driver) return res.status(404).json({ message: "Driver not found" });
-        driver.location = {
-            type: "Point",
-            coordinates: [longitude, latitude]
-        };
-        await driver.save();
-        res.status(200).json({ status: "success", data: { driver } });
+
+        const lat = Number(latitude);
+        const lng = Number(longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return res.status(400).json({ message: "Invalid coordinates" });
+        }
+
+        const driverLocation = await DriverLocation.findOneAndUpdate(
+          { driverId },
+          {
+            $set: {
+              driverId,
+              location: { type: "Point", coordinates: [lng, lat] },
+              updatedAt: new Date(),
+            },
+          },
+          { upsert: true, new: true }
+        );
+
+        res.status(200).json({ status: "success", data: { driver: driverLocation } });
     } catch (error) {
         logger.error(`Error updating driver location: ${error.message}`);
         res.status(500).json({ message: error.message });
@@ -39,10 +51,10 @@ const currentLocation = async (req, res) => {
 };
 const getCurrentLocation = async (req, res) => {
     try {
-        const driverId = await req.params.driverId;
-        const driver = await DriverLocation.findById(driverId);
-        if (!driver) return res.status(404).json({ message: "Driver not found" });
-        res.status(200).json({ status: "success", data: { currentLocation: driver.location } });
+        const driverId = req.params.driverId;
+        const driverLocation = await DriverLocation.findOne({ driverId });
+        if (!driverLocation) return res.status(404).json({ message: "Driver location not found" });
+        res.status(200).json({ status: "success", data: { currentLocation: driverLocation.location } });
     } catch (error) {
         logger.error(`Error fetching driver location: ${error.message}`);
         res.status(500).json({ message: error.message });
