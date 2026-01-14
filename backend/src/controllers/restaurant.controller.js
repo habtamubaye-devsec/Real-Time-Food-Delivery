@@ -50,7 +50,23 @@ const getRestaurantById = async (req, res) => {
 // Add menu item
 const addMenuItem = async (req, res) => {
   try {
-    const { name, price, description, image, inStock } = req.body;
+    const allowedCategories = ["breakfast", "lunch", "dinner", "fast_food", "other"];
+
+    const normalizeCategory = (value) => {
+      if (value === undefined || value === null || value === "") return undefined;
+      const v = String(value).trim().toLowerCase();
+      if (v === "fast food" || v === "fast-food") return "fast_food";
+      return v;
+    };
+
+    const { name, price, description, image, inStock, category } = req.body;
+    const normalizedCategory = normalizeCategory(category);
+    if (normalizedCategory && !allowedCategories.includes(normalizedCategory)) {
+      return res.status(400).json({
+        error: "Invalid category",
+        allowed: allowedCategories,
+      });
+    }
 
     const restaurant = await Restaurant.findById(req.params.restaurantId);
     if (!restaurant)
@@ -64,10 +80,23 @@ const addMenuItem = async (req, res) => {
 
     if (!Array.isArray(restaurant.menu)) restaurant.menu = [];
 
-    restaurant.menu.push({ name, price, description, image, inStock });
+    restaurant.menu.push({
+      name,
+      price,
+      description,
+      image,
+      inStock,
+      category: normalizedCategory,
+    });
     await restaurant.save();
 
-    res.status(201).json({ message: "Menu item added", menu: restaurant.menu });
+    const createdItem = restaurant.menu[restaurant.menu.length - 1];
+    res.status(201).json({
+      success: true,
+      message: "Menu item added",
+      item: createdItem,
+      menu: restaurant.menu,
+    });
   } catch (error) {
     logger.error("Error adding menu item:", error);
     res
@@ -118,12 +147,29 @@ const updateMenuItem = async (req, res) => {
     if (!menuItem)
       return res.status(404).json({ error: "Menu item not found" });
 
-    const { name, price, description, image, inStock } = req.body;
+    const allowedCategories = ["breakfast", "lunch", "dinner", "fast_food", "other"];
+    const normalizeCategory = (value) => {
+      if (value === undefined || value === null || value === "") return undefined;
+      const v = String(value).trim().toLowerCase();
+      if (v === "fast food" || v === "fast-food") return "fast_food";
+      return v;
+    };
+
+    const { name, price, description, image, inStock, category } = req.body;
+    const normalizedCategory = normalizeCategory(category);
+    if (normalizedCategory && !allowedCategories.includes(normalizedCategory)) {
+      return res.status(400).json({
+        error: "Invalid category",
+        allowed: allowedCategories,
+      });
+    }
+
     if (name !== undefined) menuItem.name = name;
     if (price !== undefined) menuItem.price = price;
     if (description !== undefined) menuItem.description = description;
     if (image !== undefined) menuItem.image = image;
     if (inStock !== undefined) menuItem.inStock = inStock;
+    if (normalizedCategory !== undefined) menuItem.category = normalizedCategory;
 
     await restaurant.save();
     res.json({ success: true, updatedItem: menuItem });
@@ -293,7 +339,7 @@ const getOrderById = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-const inviteDriver = async (req, res) => {
+const   inviteDriver = async (req, res) => {
   try {
     const { phone } = req.body;
 
@@ -377,9 +423,9 @@ const activeDrivers = async (req, res) => {
 
     // ✅ Find active drivers linked to this restaurant
     const drivers = await User.find({
-      role: "driver",
+      // role: "driver",
       restaurantId: restaurant._id,
-      status: "available",
+      // status: "available",
     }).select("-password"); // exclude sensitive fields
 
     res.json({ drivers });

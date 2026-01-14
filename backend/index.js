@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const http = require("http");
 const session = require("express-session");
 // fixed routes
 const authRoutes = require("./src/routes/auth.Routes");
@@ -21,6 +22,7 @@ const { connectRedis } = require("./src/config/redis");
 const logger = require("./src/utils/logger");
 const cookieParser = require("cookie-parser");
 const passport = require("./src/config/passport");
+const { initSocket } = require("./src/realtime/socket");
 
 const app = express();
 
@@ -85,8 +87,12 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = http.createServer(app);
+
+initSocket(server);
+
+server.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
 });
 
-module.exports = app;
+module.exports = { app, server };

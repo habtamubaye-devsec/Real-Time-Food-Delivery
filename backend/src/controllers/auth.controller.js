@@ -148,6 +148,8 @@ exports.login = async (req, res) => {
     let user;
     if (email) {
       user = await User.findOne({ email });
+      
+    console.log(user)
     } else if (phone) {
       user = await User.findOne({ phone });
     }
