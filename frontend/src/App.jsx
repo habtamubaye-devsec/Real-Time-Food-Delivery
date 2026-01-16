@@ -6,7 +6,10 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import useAuthStore from "./store/restaurant/authStore";
+import useRestaurantAuthStore from "./store/restaurant/authStore";
+import useAdminAuthStore from "./store/admin/authStore";
+import useCustomerAuthStore from "./store/customer/authStore";
+import useDriverAuthStore from "./store/driver/authStore";
 
 // Customer Pages
 import { Login } from "./pages/customer/Login";
@@ -22,6 +25,7 @@ import Sidebar from "./components/Sidebar";
 import MenuPage from "./pages/customer/MenuPage";
 import CartPage from "./pages/customer/CartPage";
 import OrderStatus from "./pages/customer/OrderStatus";
+import CustomerOrderMapPage from "./pages/customer/OrderMapPage";
 import CheckoutPage from "./pages/customer/CheckoutPage";
 import OrderConfirmationPage from "./pages/customer/OrderConfirmationPage";
 
@@ -37,6 +41,7 @@ import CreateDriver from "./pages/restaurant/createDriver";
 import StatsDashboard from "./pages/restaurant/StatsDashboard";
 import ActiveDriversPage from "./pages/restaurant/ActiveDriversPage";
 import AssignDriverPage from "./pages/restaurant/AssignDriver";
+import RestaurantDriverMapPage from "./pages/restaurant/DriverMapPage";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -44,6 +49,7 @@ import UserManagement from "./pages/admin/UserManagement";
 import RestaurantManagement from "./pages/admin/RestaurantManagement";
 import PendingRestaurants from "./pages/admin/PendingRestaurant";
 import { AdminLogin } from "./pages/admin/Login";
+import AdminLiveTracking from "./pages/admin/LiveTracking";
 
 // Driver Pages
 import DriverOrders from "./pages/driver/DriverOrders";
@@ -54,16 +60,61 @@ import DriverOrderStatus from "./pages/driver/DriverOrderStatus";
 import OrderMapPage from "./pages/driver/OrderMapPage";
 
 function App() {
-  const { checkAuth } = useAuthStore();
+  const { checkAuth: checkRestaurantAuth } = useRestaurantAuthStore();
+  const { checkAuth: checkAdminAuth } = useAdminAuthStore();
+  const { checkAuth: checkCustomerAuth } = useCustomerAuthStore();
+  const { checkAuth: checkDriverAuth } = useDriverAuthStore();
 
   // Check HTTP-only cookie auth on app load
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    // Best-effort: whichever role is logged in will succeed.
+    checkRestaurantAuth();
+    checkAdminAuth();
+    checkCustomerAuth();
+    checkDriverAuth();
+  }, [checkRestaurantAuth, checkAdminAuth, checkCustomerAuth, checkDriverAuth]);
 
-  // Protected route wrapper (only checks login, no role)
-  const PrivateRoute = ({ children }) => {
-    const { isLoggedIn, loading } = useAuthStore();
+  const AnyPrivateRoute = ({ children }) => {
+    const restaurant = useRestaurantAuthStore();
+    const admin = useAdminAuthStore();
+    const customer = useCustomerAuthStore();
+    const driver = useDriverAuthStore();
+
+    const loading =
+      restaurant.loading || admin.loading || customer.loading || driver.loading;
+    const isLoggedIn =
+      restaurant.isLoggedIn || admin.isLoggedIn || customer.isLoggedIn || driver.isLoggedIn;
+
+    if (loading)
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <p>Loading...</p>
+        </div>
+      );
+
+    if (!isLoggedIn) return <Navigate to="/login" replace />;
+
+    return children;
+  };
+
+  const CustomerPrivateRoute = ({ children }) => {
+    const { isLoggedIn, loading, role } = useCustomerAuthStore();
+
+    if (loading)
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <p>Loading...</p>
+        </div>
+      );
+
+    if (!isLoggedIn) return <Navigate to="/login" replace />;
+    if (role && role !== "customer") return <Navigate to="/login" replace />;
+
+    return children;
+  };
+
+  const RestaurantPrivateRoute = ({ children }) => {
+    const { isLoggedIn, loading, role } = useRestaurantAuthStore();
 
     if (loading)
       return (
@@ -73,6 +124,39 @@ function App() {
       );
 
     if (!isLoggedIn) return <Navigate to="/restaurant/login" replace />;
+    if (role && role !== "restaurant") return <Navigate to="/restaurant/login" replace />;
+
+    return children;
+  };
+
+  const AdminPrivateRoute = ({ children }) => {
+    const { isLoggedIn, loading, user } = useAdminAuthStore();
+
+    if (loading)
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <p>Loading...</p>
+        </div>
+      );
+
+    if (!isLoggedIn) return <Navigate to="/admin/login" replace />;
+    if (user?.role && user.role !== "admin") return <Navigate to="/admin/login" replace />;
+
+    return children;
+  };
+
+  const DriverPrivateRoute = ({ children }) => {
+    const { isLoggedIn, loading, role } = useDriverAuthStore();
+
+    if (loading)
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <p>Loading...</p>
+        </div>
+      );
+
+    if (!isLoggedIn) return <Navigate to="/driver/login" replace />;
+    if (role && role !== "driver") return <Navigate to="/driver/login" replace />;
 
     return children;
   };
@@ -89,25 +173,101 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/order-history" element={<OrderHistory />} />
-          <Route path="/feedback" element={<FeedbackPage />} />
-          <Route path="/nearby" element={<NearbyRestaurants />} />
-          <Route path="/sidebar" element={<Sidebar />} />
-          <Route path="/menu/:restaurantId" element={<MenuPage />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route
+            path="/order-history"
+            element={
+              <CustomerPrivateRoute>
+                <OrderHistory />
+              </CustomerPrivateRoute>
+            }
+          />
+          <Route
+            path="/feedback"
+            element={
+              <CustomerPrivateRoute>
+                <FeedbackPage />
+              </CustomerPrivateRoute>
+            }
+          />
+          <Route
+            path="/nearby"
+            element={
+              <CustomerPrivateRoute>
+                <NearbyRestaurants />
+              </CustomerPrivateRoute>
+            }
+          />
+          <Route
+            path="/sidebar"
+            element={
+              <CustomerPrivateRoute>
+                <Sidebar />
+              </CustomerPrivateRoute>
+            }
+          />
+          <Route
+            path="/menu/:restaurantId"
+            element={
+              <CustomerPrivateRoute>
+                <MenuPage />
+              </CustomerPrivateRoute>
+            }
+          />
+          <Route
+            path="/cart"
+            element={
+              <CustomerPrivateRoute>
+                <CartPage />
+              </CustomerPrivateRoute>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <CustomerPrivateRoute>
+                <CheckoutPage />
+              </CustomerPrivateRoute>
+            }
+          />
           <Route
             path="/order-confirmation"
-            element={<OrderConfirmationPage />}
+            element={
+              <CustomerPrivateRoute>
+                <OrderConfirmationPage />
+              </CustomerPrivateRoute>
+            }
           />
-            <Route path="/orders/:orderId" element={<OrderStatus />} />  
-                        <Route path="/order-status" element={<OrderStatus />} />  
+          <Route
+            path="/orders/:orderId"
+            element={
+              <CustomerPrivateRoute>
+                <OrderStatus />
+              </CustomerPrivateRoute>
+            }
+          />
+          <Route
+            path="/orders/:orderId/map"
+            element={
+              <CustomerPrivateRoute>
+                <CustomerOrderMapPage />
+              </CustomerPrivateRoute>
+            }
+          />
+          <Route
+            path="/order-status"
+            element={
+              <CustomerPrivateRoute>
+                <OrderStatus />
+              </CustomerPrivateRoute>
+            }
+          />
 
             <Route
             path="/profile"
             element={
-              <PrivateRoute>
+              <AnyPrivateRoute>
                 <Profile />
-              </PrivateRoute>
+              </AnyPrivateRoute>
             }
           />
 
@@ -121,65 +281,73 @@ function App() {
           <Route
             path="/restaurant/dashboard"
             element={
-              <PrivateRoute>
+              <RestaurantPrivateRoute>
                 <Dashboard />
-              </PrivateRoute>
+              </RestaurantPrivateRoute>
             }
           />
           <Route
             path="/restaurant/menu"
             element={
-              <PrivateRoute>
+              <RestaurantPrivateRoute>
                 <AddMenuItem />
-              </PrivateRoute>
+              </RestaurantPrivateRoute>
             }
           />
           <Route
             path="/MenuManagement/:restaurantId"
             element={
-              <PrivateRoute>
+              <RestaurantPrivateRoute>
                 <MenuManagement />
-              </PrivateRoute>
+              </RestaurantPrivateRoute>
             }
           />
           <Route
             path="/inventory/:restaurantId"
             element={
-              <PrivateRoute>
+              <RestaurantPrivateRoute>
                 <InventoryPage />
-              </PrivateRoute>
+              </RestaurantPrivateRoute>
             }
           />
           <Route
             path="/restaurant/create"
             element={
-              <PrivateRoute>
+              <RestaurantPrivateRoute>
                 <CreateDriver />
-              </PrivateRoute>
+              </RestaurantPrivateRoute>
             }
           />
           <Route
             path="/restaurant/status"
             element={
-              <PrivateRoute>
+              <RestaurantPrivateRoute>
                 <StatsDashboard />
-              </PrivateRoute>
+              </RestaurantPrivateRoute>
             }
           />
           <Route
             path="/restaurant/active-drivers"
             element={
-              <PrivateRoute>
+              <RestaurantPrivateRoute>
                 <ActiveDriversPage />
-              </PrivateRoute>
+              </RestaurantPrivateRoute>
+            }
+          />
+          <Route
+            path="/restaurant/drivers/:driverId/map"
+            element={
+              <RestaurantPrivateRoute>
+                <RestaurantDriverMapPage />
+              </RestaurantPrivateRoute>
             }
           />
           <Route
             path="/restaurant/assign-driver"
             element={
-              <PrivateRoute>
+              <RestaurantPrivateRoute>
                 <AssignDriverPage />
-              </PrivateRoute>
+              </RestaurantPrivateRoute>
             }
           />
 
@@ -189,13 +357,36 @@ function App() {
           <Route path="/driver/orders/:driverId" element={<DriverOrders />} />
           <Route
             path="/driver/status/:driverId"
-            element={<DriverOrderStatus />}
+            element={
+              <DriverPrivateRoute>
+                <DriverOrderStatus />
+              </DriverPrivateRoute>
+            }
           />
           <Route
             path="/driver/orders/:orderId/map"
-            element={<OrderMapPage />}
+            element={
+              <DriverPrivateRoute>
+                <OrderMapPage />
+              </DriverPrivateRoute>
+            }
           />
-          <Route path="/driver/earnings" element={<DriverEarnings />} />
+          <Route
+            path="/driver/earnings"
+            element={
+              <DriverPrivateRoute>
+                <DriverEarnings />
+              </DriverPrivateRoute>
+            }
+          />
+          <Route
+            path="/driver/orders/:driverId"
+            element={
+              <DriverPrivateRoute>
+                <DriverOrders />
+              </DriverPrivateRoute>
+            }
+          />
 
           {/* Admin Pages */}
           <Route
@@ -209,25 +400,33 @@ function App() {
           <Route
             path="/admin"
             element={
-              <PrivateRoute>
+              <AdminPrivateRoute>
                 <AdminDashboard />
-              </PrivateRoute>
+              </AdminPrivateRoute>
             }
           />
           <Route
             path="/admin/users"
             element={
-              <PrivateRoute>
+              <AdminPrivateRoute>
                 <UserManagement />
-              </PrivateRoute>
+              </AdminPrivateRoute>
             }
           />
           <Route
             path="/admin/restaurants"
             element={
-              <PrivateRoute>
+              <AdminPrivateRoute>
                 <RestaurantManagement />
-              </PrivateRoute>
+              </AdminPrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/live-tracking"
+            element={
+              <AdminPrivateRoute>
+                <AdminLiveTracking />
+              </AdminPrivateRoute>
             }
           />
           <Route
