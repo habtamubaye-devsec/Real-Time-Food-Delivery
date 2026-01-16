@@ -42,14 +42,16 @@ const Routing = ({ driverLocation, customerLocation }) => {
 };
 
 const OrderMap = ({ driverLocation, customerLocation }) => {
-  if (!driverLocation || !customerLocation) {
+  if (!customerLocation) {
     return <div>Loading map data...</div>;
   }
 
-  const center = [
-    (driverLocation.lat + customerLocation.lat) / 2,
-    (driverLocation.lng + customerLocation.lng) / 2,
-  ];
+  const center = driverLocation
+    ? [
+        (driverLocation.lat + customerLocation.lat) / 2,
+        (driverLocation.lng + customerLocation.lng) / 2,
+      ]
+    : [customerLocation.lat, customerLocation.lng];
 
   return (
     <MapContainer
@@ -61,16 +63,20 @@ const OrderMap = ({ driverLocation, customerLocation }) => {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
-      <Marker position={[driverLocation.lat, driverLocation.lng]}>
-        <Popup>Your Location</Popup>
-      </Marker>
+      {driverLocation && (
+        <Marker position={[driverLocation.lat, driverLocation.lng]}>
+          <Popup>Driver</Popup>
+        </Marker>
+      )}
       <Marker position={[customerLocation.lat, customerLocation.lng]}>
-        <Popup>Customer's Location</Popup>
+        <Popup>Delivery destination</Popup>
       </Marker>
-      <Routing
-        driverLocation={driverLocation}
-        customerLocation={customerLocation}
-      />
+      {driverLocation && (
+        <Routing
+          driverLocation={driverLocation}
+          customerLocation={customerLocation}
+        />
+      )}
     </MapContainer>
   );
 };
