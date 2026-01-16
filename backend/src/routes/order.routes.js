@@ -2,6 +2,7 @@ const express = require("express");
 const {
   createOrder,
   getOrderHistory,
+  getOrderById,
   changeOrderStatus,
   storeFeedback, // This function comes from the 'beki.b' branch
 } = require("../controllers/order.controller");
@@ -27,6 +28,13 @@ router.get(
   protect,
   restrictTo("customer", "restaurant", "admin"),
   getOrderHistory
+);
+
+router.get(
+  "/:orderId",
+  protect,
+  restrictTo("customer", "restaurant", "admin", "driver"),
+  getOrderById
 );
 
 router.post(
