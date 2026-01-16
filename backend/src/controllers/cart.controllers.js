@@ -9,7 +9,7 @@ exports.addToCart = async (req, res) => {
     const { menuItemId, quantity, restaurantId } = req.body;
     logger.info("=== BACKEND ADD TO CART DEBUG ===");
     logger.info("Request body:", { menuItemId, quantity, restaurantId });
-    
+
     const restaurant = await Restaurant.findOne({
       _id: restaurantId,
       deleted: false,
@@ -19,10 +19,10 @@ exports.addToCart = async (req, res) => {
 
     logger.info("Restaurant found:", { name: restaurant.name, menuCount: restaurant.menu.length });
     logger.info("Looking for menu item with ID:", menuItemId);
-    
+
     const menuItem = restaurant.menu.id(menuItemId);
     logger.info("Menu item found:", menuItem ? { id: menuItem._id, name: menuItem.name, price: menuItem.price } : "NOT FOUND");
-    
+
     if (!menuItem || !menuItem.inStock)
       return res
         .status(404)
@@ -52,6 +52,7 @@ exports.addToCart = async (req, res) => {
         menuItemId,
         name: menuItem.name,
         price: menuItem.price,
+        image: menuItem.image || "/images/default-food.jpg",
         quantity,
       };
       logger.info("Adding new item to cart:", newItem);

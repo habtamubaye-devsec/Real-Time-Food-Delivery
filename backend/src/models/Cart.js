@@ -4,6 +4,7 @@ const cartItemSchema = new mongoose.Schema({
   menuItemId: { type: mongoose.Schema.Types.ObjectId, required: true },
   name: { type: String, required: true, trim: true },
   price: { type: Number, required: true, min: 0 },
+  image: { type: String, required: true },
   quantity: { type: Number, required: true, min: 1 },
 });
 
