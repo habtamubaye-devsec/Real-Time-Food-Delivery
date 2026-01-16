@@ -2,13 +2,13 @@ import React from "react";
 import {
   FiHome,
   FiBookOpen,
-  FiShoppingCart,
   FiActivity,
   FiSettings,
   FiLogOut,
   FiBox,
   FiUser,
 } from "react-icons/fi"; // Added FiBox for Inventory icon
+import { FaMotorcycle } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
 import useAuthStore from "../../store/restaurant/authStore";
 
@@ -24,7 +24,7 @@ const Sidebar = () => {
     { label: "Inventory", icon: FiBox, path: `/inventory/${restaurantId}` },
     {
       label: "Create Driver",
-      icon: FiShoppingCart,
+      icon: FaMotorcycle,
       path: "/restaurant/create",
     },
     { label: "Status", icon: FiActivity, path: "/restaurant/status" },

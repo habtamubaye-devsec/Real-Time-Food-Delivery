@@ -5,6 +5,7 @@ import {
   FiShoppingBag,
   FiCheckCircle,
   FiUser,
+  FiMap,
 } from "react-icons/fi";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -20,6 +21,11 @@ const Sidebar = () => {
       label: "Restaurant Management",
       icon: FiShoppingBag,
       path: "/admin/restaurants",
+    },
+    {
+      label: "Live Tracking",
+      icon: FiMap,
+      path: "/admin/live-tracking",
     },
     {
       label: "Pending Restaurants",

@@ -39,9 +39,8 @@ const Sidebar = () => {
             <button
               key={label}
               onClick={() => navigate(path)}
-              className={`flex flex-col items-center text-xs ${
-                isActive ? "text-red-500 font-semibold" : "text-gray-600"
-              } hover:text-red-500 transition`}
+              className={`flex flex-col items-center text-xs ${isActive ? "text-red-500 font-semibold" : "text-gray-600"
+                } hover:text-red-500 transition`}
             >
               <Icon size={20} />
               <span className="mt-1">{label}</span>
