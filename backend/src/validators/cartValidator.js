@@ -16,6 +16,9 @@ const addToCartSchema = Joi.object({
 });
 
 const updateCartItemSchema = Joi.object({
+  id: JoiObjectID().required().messages({
+    "string.pattern.base": "Valid item ID required",
+  }),
   quantity: Joi.number().integer().min(1).required().messages({
     "number.base": "Quantity must be a number",
     "number.min": "Quantity must be at least 1",
@@ -24,13 +27,14 @@ const updateCartItemSchema = Joi.object({
 });
 
 const removeFromCartSchema = Joi.object({
-  itemId: JoiObjectID().required().messages({
+  id: JoiObjectID().required().messages({
     "string.pattern.base": "Valid item ID required",
   }),
 });
 
 const validate = (schema) => (req, res, next) => {
-  const { error } = schema.validate(req.body || req.params, {
+  // Merge body and params to validate everything together
+  const { error } = schema.validate({ ...req.body, ...req.params }, {
     abortEarly: false,
   });
   if (error) {
