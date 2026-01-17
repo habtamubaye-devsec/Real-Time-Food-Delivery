@@ -14,6 +14,7 @@ export default function MenuPage() {
 
   const initialFormState = {
     name: "",
+    category: "other",
     price: "",
     description: "",
     image: "",
@@ -32,7 +33,7 @@ export default function MenuPage() {
   const openForm = (item = null) => {
     if (item) {
       setEditingItem(item);
-      setFormData(item);
+      setFormData({ ...item, category: item.category || "other" });
     } else {
       setEditingItem(null);
       setFormData(initialFormState);
@@ -106,6 +107,11 @@ export default function MenuPage() {
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex flex-col">
                         <p className="font-semibold text-lg">{item.name}</p>
+                        {item.category && (
+                          <p className="text-xs text-gray-500">
+                            Category: {String(item.category).replace("_", " ")}
+                          </p>
+                        )}
                         <p className="text-sm text-gray-700">
                           {item.description}
                         </p>
@@ -163,6 +169,21 @@ export default function MenuPage() {
                 className="border px-2 py-1 w-full"
                 required
               />
+
+              <select
+                value={formData.category}
+                onChange={(e) =>
+                  setFormData({ ...formData, category: e.target.value })
+                }
+                className="border px-2 py-1 w-full"
+              >
+                <option value="breakfast">Breakfast</option>
+                <option value="lunch">Lunch</option>
+                <option value="dinner">Dinner</option>
+                <option value="fast_food">Fast food</option>
+                <option value="other">Other</option>
+              </select>
+
               <input
                 type="number"
                 placeholder="Price"
