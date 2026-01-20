@@ -2,8 +2,9 @@ import { create } from "zustand";
 import axios from "axios";
 
 // Axios instance with cookies enabled
+const API_URL = import.meta.env.VITE_API_URL || "/api/delivery";
 const api = axios.create({
-  baseURL: "https://real-time-food-delivery.onrender.com/api/delivery",
+  baseURL: API_URL,
   withCredentials: true, // important for HttpOnly cookies
 });
 
@@ -39,7 +40,7 @@ const useAuthStore = create((set) => ({
   checkAuth: async () => {
     set({ loading: true });
     try {
-      const res = await api.get("/auth/refresh-token");
+      const res = await api.post("/auth/refresh-token");
       set({ isLoggedIn: true, user: res.data.data, loading: false });
     } catch {
       set({ isLoggedIn: false, user: null, loading: false });
